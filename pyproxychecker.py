@@ -8,35 +8,38 @@ import random
 import csv
 
 
-def test_proxies(lock, proxy_list, proxy_type, output):
+def test_proxies(lock, proxy_list, proxy_type, timeout, output):
     while True:
         # Get proxy
         try:
             with lock:
-                proxy_index = random.randint(
-                    0, len(proxy_list[proxy_type]) - 1)
-                proxy_ip = proxy_list[proxy_type][proxy_index]
-                proxy_list[proxy_type].pop(proxy_index)
-        except:
+                proxy_ip = proxy_list[proxy_type][0]
+                proxy_list[proxy_type].pop(0)
+        except IndexError:
             print(clr.Fore.WHITE +
                   f"No more proxies, exiting thread {threading.current_thread().name}")
             return
 
         # Init request
-        request_code = requests.get("http://example.com", proxies={
-            proxy_type: f"{proxy_type}: // {proxy_ip}",
-        }).status_code
+        try:
+            request_code = requests.get("http://example.com", proxies={
+                "http": f"{proxy_type}://{proxy_ip}",
+            }, timeout=timeout).status_code
 
-        if request_code == 200:
-            file = open(output, "a", newline="")
-            with lock:
-                print(clr.Fore.GREEN + f"[+] {proxy_type} {proxy_ip} is good!")
-                with file:
-                    write = csv.writer(file)
-                    write.writerow([proxy_type, proxy_ip])
-        else:
-            with lock:
-                print(clr.Fore.RED + f"[-] {proxy_type} {proxy_ip} is bad!")
+            if request_code == 200:
+                file = open(output, "a", newline="")
+                with lock:
+                    print(clr.Fore.GREEN +
+                          f"[+] {proxy_type} {proxy_ip} is good!")
+                    with file:
+                        write = csv.writer(file)
+                        write.writerow([proxy_type, proxy_ip])
+            else:
+                with lock:
+                    print(clr.Fore.RED +
+                          f"[-] {proxy_type} {proxy_ip} is bad!")
+        except Exception:
+            print(clr.Fore.RED + f"[-] {proxy_type} {proxy_ip} is bad!")
 
 
 def main():
@@ -82,13 +85,13 @@ def main():
     thread_list = []
     for _ in range(args.thread_count):
         t = Thread(target=test_proxies, args=(
-            lock, proxy_list, "socks4", args.output_file))
+            lock, proxy_list, "socks4", args.timeout, args.output_file))
         thread_list.append(t)
         t = Thread(target=test_proxies, args=(
-            lock, proxy_list, "socks5", args.output_file))
+            lock, proxy_list, "socks5", args.timeout, args.output_file))
         thread_list.append(t)
         t = Thread(target=test_proxies, args=(
-            lock, proxy_list, "http", args.output_file))
+            lock, proxy_list, "http", args.timeout, args.output_file))
         thread_list.append(t)
 
     for t in thread_list:
@@ -109,6 +112,8 @@ if __name__ == "__main__":
                         help="Socks 5 proxy list location", type=str, default="")
     parser.add_argument("--http", dest="http",
                         help="HTTP proxy list location", type=str, default="")
+    parser.add_argument("-w", "--timeout", dest="timeout",
+                        help="Timeout time in seconds (default: 10)", type=int, default=10)
     parser.add_argument("-t", "--threads", dest="thread_count",
                         help="Thread count for every proxy type (default: 50)", type=int, default=50)
     parser.add_argument("-o", "--output", dest="output_file",
