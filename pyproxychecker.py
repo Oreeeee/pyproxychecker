@@ -13,12 +13,13 @@ def test_proxies(lock, proxy_list, proxy_type, output):
         # Get proxy
         try:
             with lock:
-                proxy_index = random.randint(0, len(proxy_list[proxy_type]) - 1)
+                proxy_index = random.randint(
+                    0, len(proxy_list[proxy_type]) - 1)
                 proxy_ip = proxy_list[proxy_type][proxy_index]
                 proxy_list[proxy_type].pop(proxy_index)
         except:
             print(clr.Fore.WHITE +
-                f"No more proxies, exiting thread {threading.current_thread().name}")
+                  f"No more proxies, exiting thread {threading.current_thread().name}")
             return
 
         # Init request
